@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SBPDCL Survey Progress Monitor</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: #0b1120;
+      color: #f8fafc;
+      padding: 24px;
+      overflow-x: hidden;
+    }
+
+    /* Official repeating watermark pattern */
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.05;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='380' height='160' viewBox='0 0 380 160'%3E%3Ctext x='20' y='60' fill='%23ffffff' font-size='22' font-family='sans-serif' font-weight='800' letter-spacing='4'%3ESBPDCL%3C/text%3E%3Ctext x='170' y='60' fill='%23ffffff' font-size='16' font-family='sans-serif' font-weight='700' letter-spacing='3'%3E%E2%80%A2 AEEE%3C/text%3E%3Ctext x='70' y='125' fill='%23ffffff' font-size='18' font-family='sans-serif' font-weight='700' letter-spacing='5'%3EELEMENTS%3C/text%3E%3C/svg%3E");
+      background-repeat: repeat;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 650px;
+      background: #1e293b;
+      padding: 32px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
+      overflow: hidden;
+    }
+
+    /* Official footer tag */
+    .container::after {
+      content: "SBPDCL • AEEE • ELEMENTS";
+      position: absolute;
+      bottom: 12px;
+      right: 18px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: rgba(255, 255, 255, 0.15);
+      pointer-events: none;
+      text-transform: uppercase;
+    }
+
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 24px;
+    }
+
+    h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .last-sync {
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+
+    .bars-container {
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      margin-bottom: 16px;
+    }
+
+    .bar-item {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .bar-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.875rem;
+    }
+
+    .category-name {
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    .category-stats {
+      color: #94a3b8;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Track: Total survey reached out */
+    .bar-track {
+      width: 100%;
+      height: 14px;
+      background: #334155;
+      border-radius: 9999px;
+      overflow: hidden;
+    }
+
+    /* Colored Fill: Total responses received */
+    .bar-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 9999px;
+      transition: width 0.6s ease;
+    }
+
+    .color-0 { background: #38bdf8; } /* Cyan */
+    .color-1 { background: #34d399; } /* Emerald */
+    .color-2 { background: #fbbf24; } /* Amber */
+    .color-3 { background: #f43f5e; } /* Rose */
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="header-bar">
+      <h2>SBPDCL Survey Update</h2>
+      <span class="last-sync" id="sync-time">Syncing data...</span>
+    </div>
+    <div class="bars-container" id="tasks-list"></div>
+  </div>
+
+  <script>
+    // Direct CSV export link for your sheet:
+    const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRk2M-e2M_YRjPxoEao5nyOLuUNPU2ehY2e1gRZYsRRMOvsz27nfKX93jZKxs2c9eIKA2RV6KwsU1ja/pub?output=csv";
+    
+    // Auto-sync interval: 10 minutes
+    const SYNC_INTERVAL_MS = 5 * 60 * 1000;
+
+    function parseCSV(text) {
+      const lines = text.trim().split("\n").filter(l => l.trim().length > 0);
+      
+      // Lines 1 through 4 correspond to Residential, Commercial, Industrial, Agricultural
+      return lines.slice(1, 5).map((line, index) => {
+        const values = line.split(",").map(v => v.trim());
+        return {
+          category: values[0] || `Category ${index + 1}`,
+          target: parseFloat(values[1]) || 0,     // Total survey reached out
+          responses: parseFloat(values[2]) || 0   // Total responses received
+        };
+      });
+    }
+
+    function renderBars(items) {
+      const container = document.getElementById("tasks-list");
+      
+      container.innerHTML = items.map((item, idx) => {
+        const percentage = item.target > 0
+          ? Math.min(100, Math.round((item.responses / item.target) * 100))
+          : 0;
+
+        return `
+          <div class="bar-item">
+            <div class="bar-header">
+              <span class="category-name">${item.category}</span>
+              <span class="category-stats">
+                Responses: <strong>${item.responses}</strong> / Reached: <strong>${item.target}</strong> (${percentage}%)
+              </span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill color-${idx % 4}" style="width: ${percentage}%"></div>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      document.getElementById("sync-time").textContent = 
+        `Updated: ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
+      document.getElementById("sync-time").style.color = "#94a3b8";
+    }
+
+    async function fetchLatestData() {
+      const syncStatus = document.getElementById("sync-time");
+      try {
+        const cacheBuster = `&t=${Date.now()}`;
+        const response = await fetch(`${SHEET_CSV_URL}${cacheBuster}`);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status} (${response.statusText})`);
+        }
+
+        const csvData = await response.text();
+        const parsedData = parseCSV(csvData);
+        renderBars(parsedData);
+      } catch (err) {
+        console.error("Sync error:", err);
+        syncStatus.textContent = "Sync failed. Retrying in 5 mins.";
+        syncStatus.style.color = "#f43f5e";
+      }
+    }
+
+    // Initial fetch on page load
+    fetchLatestData();
+
+    // Auto-sync every 10 minutes
+    setInterval(fetchLatestData, SYNC_INTERVAL_MS);
+  </script>
+</body>
+</html>
